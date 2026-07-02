@@ -132,6 +132,35 @@ of your bid minus the optimal bid — you literally watch yourself learn to shad
 Beating a level unlocks its opponents' strategy descriptions, and your score is
 luck-adjusted: PnL per round **minus what a Shark would be expected to earn in your seat**.
 
+## Act 5 — the English auction, where information leaks
+
+Open the **English arena** at `/english` in the running app: the
+price rises on a clock, bidders drop out irreversibly, and the last one standing pays the
+price at which the runner-up quit. Same value model, wildly different information game —
+**every dropout price reveals a signal**. In the Milgrom–Weber equilibrium you stay in
+exactly up to the *pivotal estimate*
+
+$$\mathbb{E}\big[V \,\big|\, s,\ \text{remaining rivals tied at } s,\ \text{revealed dropouts}\big]
+\;=\; \text{midpoint}\big(s - a,\ \min(s, s_{\text{lowest revealed}}) + a\big)$$
+
+and equilibrium bidders can *invert* each exit price back to the leaver's signal and
+re-solve on the fly. With no dropouts yet, the rule is just the posterior mean — the
+ascending mechanism corrects the winner's curse **by itself**, no deliberate shading
+required. That has a price-theory consequence: the seller captures the leaked information.
+
+![english arena](docs/figures/arena_clock.png)
+
+Revenue equivalence (which holds for *private* values) visibly breaks: in all-Shark fields
+the sealed-bid winner keeps a rent of about $\tfrac{2a}{N+1}$, while the English winner
+keeps only about $\tfrac{a}{N+1}$ — the leakage hands the other half to the seller (the
+linkage principle):
+
+![revenue comparison](docs/figures/revenue.png)
+
+In the arena autopsy you can compare each leaver's *inferred* signal with their *actual*
+one: inference is exact for equilibrium bidders and systematically biased for the naive
+ones — including for you, since the Sharks read your dropout as if you were one of them.
+
 ## Repo layout
 
 ```
@@ -141,15 +170,11 @@ src/auction/
   vectorized.py   # numpy mirrors for Monte Carlo at scale (tested against the scalar versions)
   bots.py         # Tourist, Hedger, Bayesian, Shark
   campaign.py     # levels, pass rules, and the Shark score benchmark
+  english.py      # ascending-clock auction: pivotal estimates, dropout inversion
 analysis/         # scripts that produce every figure above
-web/              # FastAPI backend + single-page game client
+web/              # FastAPI backend + single-page game client (sealed campaign + English arena)
 tests/            # unit, property, API and best-response tests
 ```
-
-## Roadmap
-
-- **English (ascending) auction variant**: dropout prices leak information, bots update in
-  real time, and revenue equivalence visibly breaks under common values.
 
 ## References
 

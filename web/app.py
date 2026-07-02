@@ -21,9 +21,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from auction import AuctionConfig, equilibrium_bid, max_signal_posterior_mean
+from auction import AuctionConfig, Shark, equilibrium_bid, max_signal_posterior_mean
+from auction.bots import Bayesian, Hedger, Tourist
 from auction.campaign import LEVELS, STARTING_BANKROLL, Level, level_status, shark_benchmark
 from auction.engine import draw_round, settle
+from auction.english import pivotal_estimate, run_english
 
 CFG = AuctionConfig()
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -220,9 +222,170 @@ def _reset_level(s: Session) -> None:
     s.last_autopsy = None
 
 
+# ---------------------------------------------------------------------------
+# English (ascending clock) arena
+# ---------------------------------------------------------------------------
+
+ARENA_LINEUP = (Tourist(), Hedger(), Bayesian(), Shark(), Shark())
+
+
+class DropRequest(BaseModel):
+    price: float | None = None  # None = stayed until every bot left
+
+
+@dataclass
+class ArenaSession:
+    rng: random.Random
+    bankroll: float = STARTING_BANKROLL
+    rounds_played: int = 0
+    total_pnl: float = 0.0
+    pending: dict[str, Any] | None = None
+    status: str = "playing"  # playing | awaiting_drop
+
+
+ARENAS: dict[str, ArenaSession] = {}
+_ARENA_BENCHMARK: float | None = None
+
+
+def arena_benchmark(n_rounds: int = 3_000) -> float:
+    global _ARENA_BENCHMARK
+    if _ARENA_BENCHMARK is None:
+        rng = random.Random(0)
+        bidders = [Shark(), *ARENA_LINEUP]
+        total = sum(run_english(CFG, bidders, rng).pnl[0] for _ in range(n_rounds))
+        _ARENA_BENCHMARK = total / n_rounds
+    return _ARENA_BENCHMARK
+
+
+def arena_name(i: int) -> str:
+    return "You" if i == 0 else f"{ARENA_LINEUP[i - 1].name} {i}"
+
+
+def get_arena(session_id: str) -> ArenaSession:
+    s = ARENAS.get(session_id)
+    if s is None:
+        raise HTTPException(404, "unknown arena session")
+    return s
+
+
+def arena_state(s: ArenaSession) -> dict[str, Any]:
+    return {
+        "bankroll": round(s.bankroll, 2),
+        "rounds_played": s.rounds_played,
+        "status": s.status,
+        "pnl_per_round": round(s.total_pnl / s.rounds_played, 3) if s.rounds_played else 0.0,
+        "benchmark": round(arena_benchmark(), 3),
+        "opponents": [b.name for b in ARENA_LINEUP],
+        "noise": CFG.noise,
+        "value_range": [CFG.v_low, CFG.v_high],
+    }
+
+
+@app.post("/api/english/session")
+def create_arena(seed: int | None = None) -> dict[str, Any]:
+    session_id = uuid.uuid4().hex
+    ARENAS[session_id] = ArenaSession(rng=random.Random(seed))
+    return {"session_id": session_id, **arena_state(ARENAS[session_id])}
+
+
+@app.post("/api/english/{session_id}/round")
+def arena_round(session_id: str) -> dict[str, Any]:
+    s = get_arena(session_id)
+    if s.status != "playing":
+        raise HTTPException(409, f"cannot start a round while status is '{s.status}'")
+    n = len(ARENA_LINEUP) + 1
+    true_value, signals = draw_round(CFG, n, s.rng)
+    # timeline of bot exits assuming the player never drops; bots only react
+    # to dropout *events*, so this is exactly what the player watches live
+    schedule = run_english(
+        CFG, ["player", *ARENA_LINEUP], random.Random(s.rng.random()),
+        true_value=true_value, signals=signals, player_index=0, player_drop=None,
+    )
+    events = []
+    min_revealed = float("inf")
+    for d in schedule.dropouts:
+        min_revealed = min(min_revealed, d.inferred_signal)
+        events.append(
+            {
+                "price": round(d.price, 2),
+                "name": arena_name(d.bidder),
+                "inferred_signal": round(d.inferred_signal, 2),
+                "your_hint_after": round(pivotal_estimate(signals[0], min_revealed, CFG), 2),
+            }
+        )
+    s.pending = {"true_value": true_value, "signals": signals}
+    s.status = "awaiting_drop"
+    return {
+        "round_number": s.rounds_played + 1,
+        "your_signal": round(signals[0], 2),
+        "your_hint_start": round(pivotal_estimate(signals[0], float("inf"), CFG), 2),
+        "n_bidders": n,
+        "events": events,
+        "win_price": round(schedule.price, 2),
+        **arena_state(s),
+    }
+
+
+@app.post("/api/english/{session_id}/drop")
+def arena_drop(session_id: str, req: DropRequest) -> dict[str, Any]:
+    s = get_arena(session_id)
+    if s.status != "awaiting_drop" or s.pending is None:
+        raise HTTPException(409, "no clock running")
+    true_value: float = s.pending["true_value"]
+    signals: list[float] = s.pending["signals"]
+
+    result = run_english(
+        CFG, ["player", *ARENA_LINEUP], s.rng,
+        true_value=true_value, signals=signals,
+        player_index=0, player_drop=req.price,
+    )
+    # counterfactual: a Shark holding your signal, same round
+    shadow = run_english(
+        CFG, [Shark(), *ARENA_LINEUP], random.Random(1),
+        true_value=true_value, signals=signals,
+    )
+
+    s.bankroll += result.pnl[0]
+    s.total_pnl += result.pnl[0]
+    s.rounds_played += 1
+    s.pending = None
+    s.status = "playing"
+
+    timeline = [
+        {
+            "name": arena_name(d.bidder),
+            "price": round(d.price, 2),
+            "inferred_signal": round(d.inferred_signal, 2),
+            "actual_signal": round(result.signals[d.bidder], 2),
+            "is_you": d.bidder == 0,
+        }
+        for d in result.dropouts
+    ]
+    autopsy = {
+        "round_number": s.rounds_played,
+        "true_value": round(true_value, 2),
+        "timeline": timeline,
+        "winner": arena_name(result.winner),
+        "you_won": result.winner == 0,
+        "price": round(result.price, 2),
+        "your_pnl": round(result.pnl[0], 2),
+        "shadow_shark": {
+            "won": shadow.winner == 0,
+            "price": round(shadow.price, 2),
+            "pnl": round(shadow.pnl[0], 2),
+        },
+    }
+    return {"autopsy": autopsy, **arena_state(s)}
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/english")
+def english_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "english.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
