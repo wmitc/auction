@@ -113,6 +113,25 @@ pip install -e .[analysis]
 python analysis/run_all.py    # writes docs/figures/*.png (~1 min)
 ```
 
+## Play the game
+
+```bash
+pip install -e .[web]
+uvicorn web.app:app
+# open http://127.0.0.1:8000
+```
+
+A nine-level campaign from one naive rival up to a table of eight equilibrium bidders. You
+start each level with a bankroll of 100; going broke busts the level, finishing at a profit
+advances you. The heart of the game is the **post-round autopsy**: everyone's signals and
+bids, the true value, the equilibrium bid you *should* have made, and a running histogram
+of your bid minus the optimal bid — you literally watch yourself learn to shade:
+
+![game autopsy screen](docs/figures/game_autopsy.png)
+
+Beating a level unlocks its opponents' strategy descriptions, and your score is
+luck-adjusted: PnL per round **minus what a Shark would be expected to earn in your seat**.
+
 ## Repo layout
 
 ```
@@ -121,14 +140,14 @@ src/auction/
   bayes.py        # posteriors, the curse correction, the equilibrium bid (scalar, stdlib-only)
   vectorized.py   # numpy mirrors for Monte Carlo at scale (tested against the scalar versions)
   bots.py         # Tourist, Hedger, Bayesian, Shark
+  campaign.py     # levels, pass rules, and the Shark score benchmark
 analysis/         # scripts that produce every figure above
-tests/            # unit, property and best-response tests
+web/              # FastAPI backend + single-page game client
+tests/            # unit, property, API and best-response tests
 ```
 
 ## Roadmap
 
-- **Playable web game**: campaign from 1 naive bot to 8 sharks, bankroll survival, and a
-  post-round autopsy showing everyone's signals, the true V, and the bid you *should* have made.
 - **English (ascending) auction variant**: dropout prices leak information, bots update in
   real time, and revenue equivalence visibly breaks under common values.
 

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Winner's Curse</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div>
+        <div class="kicker" id="level-kicker">Level 1 of 9</div>
+        <h1 id="level-name">First Blood</h1>
+        <div class="tagline" id="level-tagline"></div>
+      </div>
+      <div class="tiles">
+        <div class="tile">
+          <div class="tile-label">Bankroll</div>
+          <div class="tile-value" id="bankroll">100.00</div>
+          <div class="tile-delta" id="bankroll-delta"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Round</div>
+          <div class="tile-value" id="round-counter">–</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Bidders</div>
+          <div class="tile-value" id="n-bidders">–</div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- deal screen -->
+      <section class="panel hidden" id="deal-panel">
+        <p class="prose" id="deal-text"></p>
+        <button class="primary" id="deal-btn">Deal the round</button>
+      </section>
+
+      <!-- bid screen -->
+      <section class="panel hidden" id="bid-panel">
+        <div class="signal-block">
+          <div class="tile-label">Your private signal</div>
+          <div class="hero" id="signal-value">—</div>
+          <div class="hint" id="signal-hint"></div>
+        </div>
+        <div class="bid-controls">
+          <input type="range" id="bid-slider" min="0" max="100" step="0.5" value="50" />
+          <div class="bid-row">
+            <input type="number" id="bid-input" min="-10" max="110" step="0.5" value="50" />
+            <button class="primary" id="bid-btn">Submit sealed bid</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- autopsy screen -->
+      <section class="panel hidden" id="autopsy-panel">
+        <div class="autopsy-head">
+          <div>
+            <div class="tile-label">True value</div>
+            <div class="hero" id="true-value">—</div>
+          </div>
+          <div>
+            <div class="tile-label">Your PnL this round</div>
+            <div class="hero" id="round-pnl">—</div>
+          </div>
+        </div>
+        <table class="autopsy-table">
+          <thead>
+            <tr><th></th><th>Bidder</th><th class="num">Signal</th><th class="num">Bid</th><th class="num">PnL</th></tr>
+          </thead>
+          <tbody id="autopsy-rows"></tbody>
+        </table>
+        <div class="coach" id="coach"></div>
+        <div class="histo-block">
+          <div class="tile-label">Your bid − optimal bid, all rounds (aim for 0)</div>
+          <canvas id="histogram" width="640" height="120"></canvas>
+        </div>
+        <div class="cta-row" id="autopsy-cta"></div>
+      </section>
+
+      <!-- level passed strategies -->
+      <section class="panel hidden" id="strategies-panel">
+        <h2>Opponent strategies unlocked</h2>
+        <div id="strategies"></div>
+      </section>
+
+      <!-- campaign complete -->
+      <section class="panel hidden" id="complete-panel">
+        <h2>Campaign complete</h2>
+        <p class="prose">Your score per level is your PnL per round minus what a Shark
+          would be expected to earn in your seat — luck-adjusted skill.</p>
+        <table class="autopsy-table"><tbody id="score-rows"></tbody></table>
+      </section>
+    </main>
+    <footer>
+      <span id="score-line"></span>
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
