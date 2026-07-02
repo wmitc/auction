@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.4"]
+dev = ["pytest>=8", "ruff>=0.4", "httpx>=0.27"]
 analysis = ["numpy>=1.26", "matplotlib>=3.8"]
 web = ["fastapi>=0.110", "uvicorn>=0.29"]
 
@@ -20,6 +20,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "slow: long Monte Carlo tests (deselect with -m 'not slow')",
 ]
