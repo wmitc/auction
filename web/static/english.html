@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Winner's Curse — English Arena</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <div class="kicker">English auction arena</div>
+        <h1>The Clock</h1>
+        <div class="tagline">Price rises. Drop out before it eats you — but every exit you
+          watch is information.</div>
+      </div>
+      <div class="tiles">
+        <div class="tile">
+          <div class="tile-label">Bankroll</div>
+          <div class="tile-value" id="bankroll">100.00</div>
+          <div class="tile-delta" id="bankroll-delta"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Rounds</div>
+          <div class="tile-value" id="rounds">0</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">PnL / round</div>
+          <div class="tile-value" id="ppr">0.00</div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel hidden" id="start-panel">
+        <p class="prose" id="start-text"></p>
+        <button class="primary" id="start-btn">Start the clock</button>
+      </section>
+
+      <section class="panel hidden" id="clock-panel">
+        <div class="clock-grid">
+          <div class="clock-side">
+            <div class="tile-label">Your private signal</div>
+            <div class="hero" id="signal">—</div>
+            <div class="hint" id="hint"></div>
+          </div>
+          <div class="clock-side">
+            <div class="tile-label">Clock price</div>
+            <div class="hero clock-price" id="price">0.0</div>
+            <button class="primary danger" id="drop-btn">Drop out</button>
+          </div>
+        </div>
+        <ul class="feed" id="feed"></ul>
+      </section>
+
+      <section class="panel hidden" id="autopsy-panel">
+        <div class="autopsy-head">
+          <div>
+            <div class="tile-label">True value</div>
+            <div class="hero" id="true-value">—</div>
+          </div>
+          <div>
+            <div class="tile-label">Your PnL this round</div>
+            <div class="hero" id="round-pnl">—</div>
+          </div>
+        </div>
+        <table class="autopsy-table">
+          <thead>
+            <tr><th></th><th>Exit order</th><th class="num">Price</th>
+            <th class="num">Inferred signal</th><th class="num">Actual signal</th></tr>
+          </thead>
+          <tbody id="timeline-rows"></tbody>
+        </table>
+        <div class="coach" id="coach"></div>
+        <div class="cta-row"><button class="primary" id="next-btn">Next round</button></div>
+      </section>
+    </main>
+    <footer>
+      <span id="score-line"></span> · <a href="/">back to the sealed-bid campaign</a>
+    </footer>
+  </div>
+  <script src="/static/english.js"></script>
+</body>
+</html>
